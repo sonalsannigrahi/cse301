@@ -1,9 +1,9 @@
 open Ast 
 
-val p_name: name -> unit
-val p_const: const -> unit
-val p_uop: uop -> unit
-val p_bop: bop -> unit
-val p_typ: typ -> unit
-val p_arg: arg -> unit
-val p_expr: expr -> unit
+val p_name: out_channel -> name -> unit
+val p_const: out_channel -> const -> unit
+val p_uop: out_channel -> uop -> unit
+val p_bop: out_channel -> bop -> unit
+val p_typ: out_channel -> typ -> unit
+val p_arg: out_channel -> arg -> unit
+val p_expr: out_channel -> expr -> unit
