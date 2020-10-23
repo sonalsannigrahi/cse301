@@ -1,5 +1,7 @@
 open Ast
 open Printer
+open Eval
+
 
 let main ( ) =
   let file = ref "" in
@@ -17,7 +19,8 @@ let main ( ) =
         failwith (Printf.sprintf "error at line %d: %s" !Lexer.num_line
                     (Printexc.to_string e))
     else failwith "No program given" in
-    p_expr p;;
+    (* p_expr p;; *)
+    eval_expr p stack;;
   
 
 let _ = main ()

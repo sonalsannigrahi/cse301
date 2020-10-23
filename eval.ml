@@ -1,74 +1,108 @@
+open Ast;;
+module String_type_Pairs = 
+  struct 
+    type t = string
+    let compare = String.compare
+  end;;
+module Env = Map.Make(String_type_Pairs);;
+type value = 
+  | Vbool of bool 
+  | Vint of int 
+  | Vpair of (value * value)
+  | Vfunc of arg list  * value
 
-module Stack = Map.Make(String_type_Pairs);;
-
-
-type valu = Vbool
-          | Vint
-          | Vfunc
-
-let stack = Stack.empty;;
-
-(* let num_stack = Stack.(m |> add "value3" h);;
-Stack.find "value3" num_stack;; *)
-
-exception bad_input of string
-
-(*Figure out how to do this function*)
-let look_up name = 
-  match  with
-
-let rec eval_unary (op:uop) (e:expr) =
-  match e with
-   | Ename(name)                         -> match op with
-                                          | Upfst    -> fst (Stack.find name stack)
-                                          | Upsnd    -> snd (Stack.find name stack)
-                                          | Uineg    ->  - (Stack.find name stack)
-                                          | Ubnot    -> not (Stack.find name stack) 
-
-  | Econst  (c)                         -> match c with
-                                          |Cint(num) -> match op with
-                                                        |Uineg    ->  -c
-                                                        |other_op ->  (bad_input "We cannot do this operation with numbers")
-                                          |Cbool(b)  -> match op with 
-                                                        |Ubnot    -> not c
-                                                        |other_op -> raise (bad_input "We cannot do this operation with booleans")
-
-  | Epair   (e1,e2)                     -> match op with
-                                          | Upfst    -> e1
-                                          | Upsnd    -> e2
-                                          | other_op -> raise (bad_input "We cannot do this operation with pairs")
-  | Eunary  (uop,expr)                  -> match op with
-                                          | Upfst    -> fst eval_unary(uop,expr)
-                                          | Upsnd    -> snd eval_unary(uop,expr)
-                                          | Uineg    ->  - eval_unary(uop,expr)
-                                          | Ubnot    -> not eval_unary(uop,expr)
-  | Ebinary (bop,expr1, expr2)          -> match op with
-                                          | Upfst    -> fst eval_binary(bop,expr1,expr2)
-                                          | Upsnd    -> snd eval_binary(bop,expr1,expr2)
-                                          | Uineg    ->  - eval_binary(bop,expr1,expr2)
-                                          | Ubnot    -> not eval_binary(bop,expr1,expr2)
-  
-  | Other_expression                    -> raise(bad_input "Illegal operation")
+type env = value Env.t;;
 
 
-let eval_bop_const (op:bop) (c1:const) (c2:const) = 
+
+let stack = Env.empty;;
+
+(* let num_env = env.(m |> add "value3" h);;
+env.find "value3" num_env;; *)
+
+exception EvalError of string ;;
+
+(* let rec eval_unary (op:uop) (e:expr): value =
+  match u, e with 
+  | _, Econst(c)  -> match c with
+                  | Uineg, Vint(x)      -> Vint (~-x)
+                  | Ubnot, Vbool(x)     -> Vbool (not x)
+  | Upfst, Epair(e1,e2) -> e1
+  | Upsnd, Epair(e1,e2) -> e2
+  | _, _ -> raise (EvalError "Invalid Unop") ;; *)
+
+  let eval_unary (u : uop) (e : value) : value = 
+    match u, e with 
+    | Ubnot, Vbool b -> Vbool (not b)
+    | Uineg, Vint x -> Vint (~-x)
+    | Upfst, Vpair (x, y) -> x (*not sure*)
+    | Upsnd, Vpair (x, y) -> y
+    | _, _ -> raise (EvalError "Invalid Unop") ;;
+
+
+(* let eval_bop_const (op:bop) (c1:const) (c2:const):value = 
+  match c1,c2 with 
   |Cint(num),Cint(num1) ->  match op with
-                                                        | Biadd   -> num + num1
-                                                        | Bisub   -> num - num1
-                                                        | Bimul   -> num * num1
-                                                        | Bidiv   -> num / num1
-                                                        | Bcleq   -> num <= num1
-                                                        | Bceq    -> num < num1
-                              | Cbool(b),Cbool(b1) -> match op with 
-                                                        | Bband   -> b && b1
-  | something_else -> raise(bad_input "bad input for bop const")
+                            | Biadd   -> Vint(num + num1)
+                            | Bisub   -> Vint(num - num1)
+                            | Bimul   -> Vint(num * num1)
+                            | Bidiv   -> Vint(num / num1)
+                            | Bcleq   -> Vbool(num <= num1)
+                            | Bceq    -> Vbool(num < num1)
+  | Cbool(b),Cbool(b1) ->   match op with 
+                            | Bband   -> Vbool(b && b1)
+  | something_else -> raise(bad_input "bad input for bop const");;
 
-let rec eval_binary (op:bop) (e1:expr) (e2:expr) =
-  match e1,e2 with
-  |Econst  (c),Econst  (c1) -> eval_bop_const op c c1
-  |Ename (name),Econst  (c) -> eval_bop_const op (Stack.find name stack) c
-  |Econst  (c), Ename(name) -> eval_bop_const op c (Stack.find name stack)
-  | _, _ -> eval
+let rec eval_binary (op:bop) (e1:expr) (e2:expr):expr =
+  match op,e1,e2 with
+  | _, Const(c1), Const(c2) -> eval_bop_const op c1 c2
+  | _ , _, _ -> raise (EvalError "Invalid Binop");; *)
+
+
+let eval_binary (u: bop) (e1: value) (e2: value) : value =
+  match u, e1, e2 with 
+  | Biadd, Vint x, Vint y -> Vint (x + y)
+  | Bisub, Vint x, Vint y -> Vint (x - y) (* integers: sub      *)
+  | Bimul, Vint x, Vint y -> Vint (x * y) (* integers: mul      *)
+  | Bidiv, Vint x, Vint y -> Vint (x / y) (* integers: div      *)
+  | Bband, Vbool b1, Vbool b2 -> Vbool (b1 && b2) (* booleans: and      *)
+  | Bcleq, Vint x, Vint y -> Vbool (x <= y) (* compare:  integers, less or equal *)
+  | Bceq, Vint x, Vint y -> Vbool (x = y)  (* compare:  integers, equal *)
+  | _ , _,_ -> raise (EvalError "Invalid Binop");;
+
+let eval_expr (e:expr) (env:env):value =
+  let rec eval_aux (e:expr) (env:env):value =
+  match e with
+  | Econst(c) -> (match c with
+                |Cint(c) -> Vint(c)
+                |Cbool(b) -> Vbool(b))
+  | Ename (name) -> Env.find name env
+  | Eunary(uop,e1) ->  eval_unary uop (eval_aux e1 env)
+  | Ebinary(bop,e1,e2) -> eval_binary bop (eval_aux e1 env) (eval_aux e2 env)
+
+  | Eif(cond,e1,e2) -> (match (eval_aux cond env) with
+                        | Vbool(b) -> if b then (eval_aux e1 env) else (eval_aux e2 env)
+                        | _ -> raise (EvalError "Invalid condition"))
+  | Epair(e1,e2)  -> Vpair(eval_aux e1 env,eval_aux e2 env )
+  | Efun(l , expr) -> Vint(0)
+  (* | Eapply(e1 , l) -> 
+    match eval_aux e1 env with 
+    | Vfunc ( (v, e))-> eval_aux e env.(env |> add v (eval_aux e2 env))
+    |  _ -> raise (EvalError "Cannot apply non functions")
+
+  | Elet(is_rec,name,e1,e2) -> if is_rec then eval (Eapply (e1,Efun (v, e2))) env 
+                               else raise (EvalError "rec not yet implemented") *)
+  | _ -> raise (EvalError "No")
+
+
+  in
+  eval_aux e env;;
+
+
+
+
+  
+
                               
                                                       
 
