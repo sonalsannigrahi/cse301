@@ -15,10 +15,12 @@ type value =
   | Vbool of bool 
   | Vint of int 
   | Vpair of (value * value)
-  | Vfunc of (arg list  * expr * env)
+  | Vfunc of (arg list  * expr * (env ref))
+  | Unassigned
+
 and env = value Env.t;;
 
-let create_env = Env.empty;;
+let create_env = ref Env.empty;;
 
 
 
@@ -50,14 +52,14 @@ let eval_binary (u: bop) (e1: value) (e2: value) : value =
   | Bceq, Vint x, Vint y -> Vbool (x = y)  (* compare:  integers, equal *)
   | _ , _,_ -> raise (EvalError "Invalid Binop");;
 
-let eval_expr (e:expr) (env:env):value =
-  let rec eval_aux (e:expr) (env:env):value =
+let eval_expr (e:expr) (env:env ref):value =
+  let rec eval_aux (e:expr) (env:env ref):value =
   match e with
-  | Econst(c) -> (match c with
-                |Cint(c) -> Vint(c)
-                |Cbool(b) -> Vbool(b))
-  | Ename (name) -> Env.find name env
-  | Eunary(uop,e1) ->  eval_unary uop (eval_aux e1 env)
+  | Econst(c)          -> (match c with
+                        |Cint(c) -> Vint(c)
+                        |Cbool(b) -> Vbool(b))
+  | Ename (name)       -> Env.find name !env
+  | Eunary(uop,e1)     ->  eval_unary uop (eval_aux e1 env)
   | Ebinary(bop,e1,e2) -> eval_binary bop (eval_aux e1 env) (eval_aux e2 env)
 
   | Eif(cond,e1,e2) -> (match (eval_aux cond env) with
@@ -67,17 +69,19 @@ let eval_expr (e:expr) (env:env):value =
   | Efun(l, expr) -> Vfunc (l, expr, env)
   (*TO BE FIXED*)
   | Eapply(e1 , l) -> 
-  (match e1, l with
-  
-  | Ename(name), args_num -> (let func = (Env.find name env) in 
+
+   ( match e1, l with
+  | Ename(name), args_num -> (let func = (Env.find name !env) in
+                                
                                 match func with
                                 |Vfunc(args, e, env_vf) -> 
-                                    let env_f = ref env_vf in 
+                                    if (List.length args <> List.length args_num) then raise (EvalError "Incorrect number of arguments") else
+                                    let env_f = env_vf in 
                                     for i=0 to ((List.length args)-1) do 
                                       (match (List.nth args i), (List.nth args_num i) with
                                       |(name,typ) , value -> (env_f := Env.add name (eval_aux value env) !env_f))
                                       done; 
-                                      eval_aux e !env_f;
+                                      eval_aux e env_f;
                                 |_ -> raise (EvalError "Invalid func"))
   | _ , _ -> raise (EvalError "Invalid input for application"))
     (* function 
@@ -90,7 +94,19 @@ let eval_expr (e:expr) (env:env):value =
 
   (* v : list of arguments, l: list of arguments, e: expressions, perform iterations 
   (* Evaluate e1 in env, add v to the env, then evaluate e2 in the non-rec *) *) 
-  | Elet(is_rec,v,e1,e2) -> if is_rec then raise (EvalError "recursive")
-                            else let u = eval_aux e1 env in let envu = Env.add v u env in eval_aux e2 envu
+  | Elet(is_rec,v,e1,e2) -> if is_rec 
+                            (* then (let u = ref(eval_aux e1 env) in 
+                            let env' = ref (Env.add v !u !env) in
+                            let u' = ref (eval_aux e1 env') in
+                            (u := !u'; eval_aux e2 (ref(Env.add v !u !env)))) *)
+                            then (match eval_aux e1 env with
+                            |Vfunc(l, expr, env) -> (env := (Env.add v (Vfunc(l, expr, env)) !env); let u = eval_aux e1 env in
+                                                    let envu = ref (Env.add v u !env) in
+                                                    eval_aux e2 envu)
+                            | _ -> raise (EvalError "Invalid rec"))
+
+                            else let u = eval_aux e1 env in
+                            let envu = ref (Env.add v u !env) in
+                            eval_aux e2 envu
   in
   eval_aux e env;;
