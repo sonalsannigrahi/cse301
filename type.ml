@@ -25,6 +25,17 @@ exception TypeError of string ;;
 (*QUESTION: why do we need \n ? it messes up pair
   How do we print functions?*)
 
+let rec find_function_in_expr (name:name) (e:expr) =
+  match e with
+  | Eunary(uop,expr)  -> find_function_in_expr name expr
+  | Eapply(expr,l)  -> find_function_in_expr name expr
+  | Ebinary(bop,expr1,expr2) -> (find_function_in_expr name expr1) || (find_function_in_expr name expr2)
+  | Epair(expr1,expr2) -> (find_function_in_expr name expr1) || (find_function_in_expr name expr2)
+  | Eif(expr1,expr2,expr3)   -> (find_function_in_expr name expr1) || (find_function_in_expr name expr1) || (find_function_in_expr name expr3)
+  | Elet(is_rec,name,expr1,expr2) -> if is_rec then (find_function_in_expr name expr1) || (find_function_in_expr name expr2) else raise (TypeError "This is not a recursive function")
+  | Ename(name2) -> name2 = name
+  | _ -> false
+
 let rec equality_types (t1:typ) (t2:typ) = 
   match t1,t2 with 
   | Tint, Tint -> true
@@ -108,8 +119,18 @@ let type_expr (e:expr) (env:env ref):typ =
                       done;
                       (ast_to_typ (Tarrow(!l_type,typ_to_ast(type_aux expr env))) env))
 
-  | Elet(is_rec,v,e1,e2) -> (if is_rec 
-                      then raise(TypeError "rec bruh")
+  | Elet(is_rec,v,e1,e2) -> (if is_rec then 
+                            (match e1 with 
+                            | Efun(l,expr) -> (match expr with 
+                                  | Eif(cond,expr1,expr2) -> ( 
+                                      match (find_function_in_expr v expr1),(find_function_in_expr v expr2 ) with
+                                      | false, true -> type_aux expr1 env
+                                      | true, false -> type_aux expr2 env
+                                      | false, false -> type_aux e1 env (*If we cannot find the function its not a recursive function*)
+                                      | _ , _ -> raise (TypeError "Invalid recursion function")) (* For now*)
+                                  | _ -> raise (TypeError "Not covered"))
+                            | _ -> raise (TypeError "Not covered 2"))
+                                                        
                       else 
                       let u = type_aux e1 env in
                       let envu =  ref (Env.add v u !env) in

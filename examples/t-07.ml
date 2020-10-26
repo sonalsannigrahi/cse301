@@ -1,2 +1,2 @@
-let x = (1,2) in
-fst x
+let x = (1,false) in
+x
