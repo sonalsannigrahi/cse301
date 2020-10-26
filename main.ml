@@ -1,6 +1,7 @@
 open Ast
 open Printer
 open Eval 
+open Type
 open Printf 
 
 let main ( ) =
@@ -19,7 +20,8 @@ let main ( ) =
         failwith (Printf.sprintf "error at line %d: %s" !Lexer.num_line
                     (Printexc.to_string e))
     else failwith "No program given" in
-  print_value stdout (eval_expr p create_env);;
+  print_type stdout (type_expr p typ_env);;
+  (*print_value stdout (eval_expr p create_env);;*)
   (*p_expr stdout p;;*)
 
 let _ = main ()
