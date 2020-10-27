@@ -32,8 +32,8 @@ let rec find_function_in_expr (name:name) (e:expr) =
   | Ebinary(bop,expr1,expr2) -> (find_function_in_expr name expr1) || (find_function_in_expr name expr2)
   | Epair(expr1,expr2) -> (find_function_in_expr name expr1) || (find_function_in_expr name expr2)
   | Eif(expr1,expr2,expr3)   -> (find_function_in_expr name expr1) || (find_function_in_expr name expr1) || (find_function_in_expr name expr3)
-  | Elet(is_rec,name,expr1,expr2) -> if is_rec then (find_function_in_expr name expr1) || (find_function_in_expr name expr2) else raise (TypeError "This is not a recursive function")
-  | Ename(name2) -> name2 = name
+  | Elet(is_rec,name1,expr1,expr2) -> (find_function_in_expr name expr1) || (find_function_in_expr name expr2)
+  | Ename(name2) -> (fprintf stdout "names: ";p_expr stdout (Ename(name2));fprintf stdout " ";(p_expr stdout (Ename(name)));fprintf stdout "\n ";name2 = name)
   | _ -> false
 
 let rec equality_types (t1:typ) (t2:typ) = 
@@ -119,17 +119,29 @@ let type_expr (e:expr) (env:env ref):typ =
                       done;
                       (ast_to_typ (Tarrow(!l_type,typ_to_ast(type_aux expr env))) env))
 
+
+                      
+
+                      
   | Elet(is_rec,v,e1,e2) -> (if is_rec then 
                             (match e1 with 
-                            | Efun(l,expr) -> (match expr with 
+                            | Efun(l,expr) -> ( printf "v : ";p_expr stdout (Ename(v)); printf " \n";
+                                  let l_type = ref [] in
+                                  for i=0 to ((List.length l)-1) do
+                                  (l_type := !l_type @ [snd(List.nth l i)]; env:= (Env.add (fst(List.nth l i)) (ast_to_typ(snd(List.nth l i)) env) !env))
+                                  done;
+                                  match expr with 
                                   | Eif(cond,expr1,expr2) -> ( 
                                       match (find_function_in_expr v expr1),(find_function_in_expr v expr2 ) with
-                                      | false, true -> type_aux expr1 env
-                                      | true, false -> type_aux expr2 env
-                                      | false, false -> type_aux (Elet(false,v,e1,e2)) env (*If we cannot find the function its not a recursive function*)
-                                      | _ , _ -> raise (TypeError "Invalid recursion function")) (* For now*)
+                                      | false, true -> (env := (Env.add v (ast_to_typ (Tarrow(!l_type,typ_to_ast(type_aux expr1 env))) env) !env); type_aux expr2 env)
+                                      | true, false -> (env := (Env.add v (ast_to_typ (Tarrow(!l_type,typ_to_ast(type_aux expr2 env))) env) !env);type_aux expr1 env)
+                                      | false, false -> (printf"v:";p_expr stdout (Ename(v));fprintf stdout "e1: ";p_expr stdout expr1;fprintf stdout "e2: "; p_expr stdout expr2;fprintf stdout "\n";type_aux (Elet(false,v,e1,e2)) env) (*If we cannot find the function its not a recursive function*)
+                                      | _ , _ -> raise (TypeError "Undefined recursion function")) 
+                                  | Elet(is_rec1,name,ex1,ex2) -> (if (find_function_in_expr v ex1) then raise (TypeError "Undefined2 recursion function") else
+                                                            (env := (Env.add name (type_aux ex1 env) !env);
+                                                            (type_aux (Elet(is_rec,v,Efun(l,ex2),e2)) env)))
                                   | _ -> (if (find_function_in_expr v expr) then raise (TypeError "Invalid recursion function")
-                                   else (type_aux (Elet(false,v,e1,e2)) env)))
+                                          else (type_aux (Elet(false,v,e1,e2)) env)))
                             | _ -> raise (TypeError "Not covered 2")) (*If we cannot find the function its not a recursive function*)
                                                         
                       else 
