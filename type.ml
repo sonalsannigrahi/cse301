@@ -126,10 +126,11 @@ let type_expr (e:expr) (env:env ref):typ =
                                       match (find_function_in_expr v expr1),(find_function_in_expr v expr2 ) with
                                       | false, true -> type_aux expr1 env
                                       | true, false -> type_aux expr2 env
-                                      | false, false -> type_aux e1 env (*If we cannot find the function its not a recursive function*)
+                                      | false, false -> type_aux (Elet(false,v,e1,e2)) env (*If we cannot find the function its not a recursive function*)
                                       | _ , _ -> raise (TypeError "Invalid recursion function")) (* For now*)
-                                  | _ -> raise (TypeError "Not covered"))
-                            | _ -> raise (TypeError "Not covered 2"))
+                                  | _ -> (if (find_function_in_expr v expr) then raise (TypeError "Invalid recursion function")
+                                   else (type_aux (Elet(false,v,e1,e2)) env)))
+                            | _ -> raise (TypeError "Not covered 2")) (*If we cannot find the function its not a recursive function*)
                                                         
                       else 
                       let u = type_aux e1 env in
