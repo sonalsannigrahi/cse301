@@ -148,6 +148,19 @@ let type_expr (e:expr) (env:env ref):typ =
                                       | Elet(is_rec1,name,ex1,ex2) -> (if (find_function_in_expr v ex1) then raise (TypeError "Undefined2 recursion function") else
                                                                 (env := (Env.add name (type_aux ex1 env) !env);
                                                                 (type_aux (Elet(is_rec,v,Efun(l,ex2),e2)) env)))
+                                                                            
+                                      (* Attempt at handling functions inside the main recursive function
+                                         Here we try to add the second function to the main environment
+                                         and then try to call Elet matching again
+
+                                      | Efun(l2, expr3) ->                                                                              
+                                          let l_type = ref [] in
+                                          for i=0 to ((List.length l2)-1) do
+                                          (l_type := !l_type @ [snd(List.nth l2 i)];
+                                           env:= (Env.add (fst(List.nth l2 i)) (ast_to_typ(snd(List.nth l2 i)) env) !env))
+                                          done;
+                                          (type_aux (Elet(is_rec,...,e1,e2)) env))*) 
+
                                       | _ -> (if (find_function_in_expr v expr) then raise (TypeError "Invalid recursion function")
                                               else (type_aux (Elet(false,v,e1,e2)) env)))
                                 | _ -> type_aux (Elet(false,v,e1,e2)) env) 
