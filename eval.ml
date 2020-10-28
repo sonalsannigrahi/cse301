@@ -30,7 +30,7 @@ let rec print_value (out: out_channel) (v: value) =
   match v with
   | Vbool(b) -> fprintf out "bool : %b" b
   | Vint(n) -> fprintf out "int : %d" n 
-  | Vpair(t1, t2) -> fprintf out "pair : %a * %a" print_value t1 print_value t2 
+  | Vpair(t1, t2) -> fprintf out "pair : (%a * %a)" print_value t1 print_value t2 
   | _ -> fprintf out "Function is not a base result of evaluation"
 
 let eval_unary (u : uop) (e : value) : value = 
