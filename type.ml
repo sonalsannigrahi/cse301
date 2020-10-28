@@ -125,7 +125,7 @@ let type_expr (e:expr) (env:env ref):typ =
                               env:= (Env.add (fst(List.nth l i)) (ast_to_typ(snd(List.nth l i)) env) !env))
                             done;
                             (ast_to_typ (Tarrow(!l_type,typ_to_ast(type_aux expr env))) env))
-  (* Our approach for the rec case goes a follows: We break down the expr first into a function then into either an ifelse statement or a sequence of Let 
+  (* Our approach for the rec case goes as follows: We break down the expr first into a function then into either an if else statement or as a sequence of Let 
   statements. If we find the former, we check the if block, if it has the function we check the else block otherwise we take the type of the output of the 
   block as the output of the function, then we check the else block and type check it with this information. The inverse case is analogous. If we 
   encounter a sequence of let statements we read them, store the values in the env, and go to the next line.  *)
