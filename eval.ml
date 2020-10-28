@@ -11,27 +11,27 @@ module String_type_Pairs =
 
 module Env = Map.Make(String_type_Pairs);;
 
+(*Environment: A Map from strings to values
+  Value: Defined VBool, Vint, Vpair, and Vfunc which takes a reference to Environment as well so that the env is now mutable*)
+
 type value = 
   | Vbool of bool 
   | Vint of int 
   | Vpair of (value * value)
   | Vfunc of (arg list  * expr * (env ref))
-  | Unassigned
-
 and env = value Env.t;;
 
 let create_env = ref Env.empty;;
 
-
-
 exception EvalError of string ;;
+
 
 let rec print_value (out: out_channel) (v: value) = 
   match v with
-  | Vbool(b) -> fprintf out "Result is a boolean : %b" b
-  | Vint(n) -> fprintf out "Result in an integer : %d" n 
-  | Vpair(t1, t2) -> fprintf out "Result is a pair : %a * %a" print_value t1 print_value t2 
-  | _ -> fprintf out "Result is a function: %d" 2
+  | Vbool(b) -> fprintf out "bool : %b" b
+  | Vint(n) -> fprintf out "int : %d" n 
+  | Vpair(t1, t2) -> fprintf out "pair : %a * %a" print_value t1 print_value t2 
+  | _ -> fprintf out "Function is not a base result of evaluation"
 
 let eval_unary (u : uop) (e : value) : value = 
   match u, e with 
@@ -44,12 +44,12 @@ let eval_unary (u : uop) (e : value) : value =
 let eval_binary (u: bop) (e1: value) (e2: value) : value =
   match u, e1, e2 with 
   | Biadd, Vint x, Vint y -> Vint (x + y)
-  | Bisub, Vint x, Vint y -> Vint (x - y) (* integers: sub *)
-  | Bimul, Vint x, Vint y -> Vint (x * y) (* integers: mul *)
-  | Bidiv, Vint x, Vint y -> Vint (x / y) (* integers: div *)
-  | Bband, Vbool b1, Vbool b2 -> Vbool (b1 && b2) (* booleans: and *)
-  | Bcleq, Vint x, Vint y -> Vbool (x <= y) (* compare:  integers, less or equal *)
-  | Bceq, Vint x, Vint y -> Vbool (x = y)  (* compare:  integers, equal *)
+  | Bisub, Vint x, Vint y -> Vint (x - y) 
+  | Bimul, Vint x, Vint y -> Vint (x * y) 
+  | Bidiv, Vint x, Vint y -> Vint (x / y) 
+  | Bband, Vbool b1, Vbool b2 -> Vbool (b1 && b2) 
+  | Bcleq, Vint x, Vint y -> Vbool (x <= y) 
+  | Bceq, Vint x, Vint y -> Vbool (x = y)
   | _ , _,_ -> raise (EvalError "Invalid Binop");;
 
 let eval_expr (e:expr) (env:env ref):value =
@@ -67,7 +67,9 @@ let eval_expr (e:expr) (env:env ref):value =
                         | _ -> raise (EvalError "Invalid condition"))
   | Epair(e1,e2)  -> Vpair(eval_aux e1 env,eval_aux e2 env )
   | Efun(l, expr) -> Vfunc (l, expr, env)
-  (*TO BE FIXED*)
+
+  (* In Eapply, we loop over the arguments and add the args to the env in which the function is defined
+      and update the env in each iteration. Eval aux is then called with this updated env*)
   | Eapply(e1 , l) -> 
 
    ( match e1, l with
@@ -84,27 +86,18 @@ let eval_expr (e:expr) (env:env ref):value =
                                       eval_aux e env_f;
                                 |_ -> raise (EvalError "Invalid func"))
   | _ , _ -> raise (EvalError "Invalid input for application"))
-    (* function 
-    | [], [] -> raise (EvalError "There are no arguments and there are no functions")
-    | start_exp :: end_exp, [] -> raise (EvalError "There are no arguments")
-    | [], start_args :: end_args -> raise (EvalError "There are too many arguments")
-    | [v] -> (match eval_aux e1 env with  
-                   | Vfunc (v, e, env)-> eval_aux e (env |> Env.add v (eval_aux e2 env))
-                   |  _ -> raise (EvalError "Cannot apply non functions"))  *)
 
-  (* v : list of arguments, l: list of arguments, e: expressions, perform iterations 
-  (* Evaluate e1 in env, add v to the env, then evaluate e2 in the non-rec *) *) 
+  (* In Elet, we handle the non-recursive case by first evaluating in the env for expression 1, 
+  then adding the name to this same env and then evaluating expression 2 in this env that has the name for expression 1 
+  
+  For the recursive case, instead of adding the name to the environment, we store the function itself (which includes the env passed by reference) for later use
+  After this, we first evaluate expression 1 in this env, add name: evaluation of expression 1 to the env, then evaluate expression 2*)
   | Elet(is_rec,v,e1,e2) -> if is_rec 
-                            (* then (let u = ref(eval_aux e1 env) in 
-                            let env' = ref (Env.add v !u !env) in
-                            let u' = ref (eval_aux e1 env') in
-                            (u := !u'; eval_aux e2 (ref(Env.add v !u !env)))) *)
                             then (match eval_aux e1 env with
                             |Vfunc(l, expr, env) -> (env := (Env.add v (Vfunc(l, expr, env)) !env); let u = eval_aux e1 env in
                                                     let envu = ref (Env.add v u !env) in
                                                     eval_aux e2 envu)
                             | _ -> raise (EvalError "Invalid rec"))
-
                             else let u = eval_aux e1 env in
                             let envu = ref (Env.add v u !env) in
                             eval_aux e2 envu
