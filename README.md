@@ -2,4 +2,4 @@
 
 Authors: Diego Gomez and Sonal Sannigrahi
 
-Final Project
+Project Description: https://www.enseignement.polytechnique.fr/informatique/CSE301/project/project.html
